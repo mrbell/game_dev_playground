@@ -2,9 +2,9 @@
 Draw a cube to the terminal and rotate the camera around the cube at a fixed rate. 
 Trying to do it in pure Python and hit at least 20 FPS.
 '''
-import math
 import time
 import curses
+import numpy as np
 
 
 REFRESH_RATE = 30
@@ -12,10 +12,10 @@ GRAYS = [' ', '░', '▒', '▓', '█']
 PLAYER_DIST = 2.25
 PLAYER_HEIGHT = 0.5
 # The camera will rotate at this rate, rad/frame w/ locked FPS
-PLAYER_ANGULAR_VELOCITY = 2 * math.pi / 20 / 2  # REFRESH_RATE
+PLAYER_ANGULAR_VELOCITY = 2 * np.pi / 20 / 2  # REFRESH_RATE
 SCREEN_DISTANCE = 0.5  # From player
-HFOV = 80 * math.pi / 180  # Roughly 1 deg / pixel if term is 80 columns wide
-VFOV = 60 * math.pi / 180
+HFOV = 80 * np.pi / 180  # Roughly 1 deg / pixel if term is 80 columns wide
+VFOV = 60 * np.pi / 180
 
 LIGHT_DISTANCE = 5
 LIGHT_BRIGHTNESS = 2
@@ -29,14 +29,10 @@ def z_rotate(vector, angle_rad):
     '''
     Rotate the given vector around the Z axis.
     '''
-    cosa = math.cos(angle_rad)
-    sina = math.sin(angle_rad)
+    cosa = np.cos(angle_rad)
+    sina = np.sin(angle_rad)
 
-    return Vector(
-        vector.x * cosa - vector.y * sina,
-        vector.x * sina + vector.y * cosa,
-        vector.z
-    )
+    return Vector(*(np.array([[cosa, -sina, 0], [sina, cosa, 0], [0, 0, 1]]) @ vector.xyz))
 
 
 class Vector(object):
@@ -45,40 +41,41 @@ class Vector(object):
     scalar multiplication, dot product, cross product, normalization, and length
     calculation. Can be compared to other vectors for equality.
     '''
-    __slots__ = 'x', 'y', 'z', '_length'
+    __slots__ = 'xyz', '_length'
     def __init__(self, x, y, z):
-        self.x, self.y, self.z = float(x), float(y), float(z)
+        self.xyz = np.array([x, y, z])
         self._length = None
     def copy(self):
-        return Vector(self.x, self.y, self.z)
+        return Vector(*self.xyz)
     def __add__(self, other_vector):
-        return Vector(self.x + other_vector.x, self.y + other_vector.y, self.z + other_vector.z)
+        return Vector(*(self.xyz + other_vector.xyz))
     def __sub__(self, other_vector):
-        return Vector(self.x - other_vector.x, self.y - other_vector.y, self.z - other_vector.z)
+        return Vector(*(self.xyz - other_vector.xyz))
     def __mul__(self, scale_factor):
-        return Vector(self.x * scale_factor, self.y * scale_factor, self.z * scale_factor)
+        return Vector(*(self.xyz * scale_factor))
     def __rmul__(self, scale_factor):
         return self.__mul__(scale_factor)
     def dot(self, other_vector):
-        return (self.x * other_vector.x) + (self.y * other_vector.y) + (self.z * other_vector.z)
+        return self.xyz @ other_vector.xyz
     def cross(self, other_vector):
+        # return Vector(*np.cross(self.xyz, other_vector.xyz))
         return Vector(
-            self.y * other_vector.z - self.z * other_vector.y,
-            -self.x * other_vector.z + self.z * other_vector.x,
-            self.x * other_vector.y - self.y * other_vector.x
+            self.xyz[1] * other_vector.xyz[2] - self.xyz[2] * other_vector.xyz[1],
+            -self.xyz[0] * other_vector.xyz[2] + self.xyz[2] * other_vector.xyz[0],
+            self.xyz[0] * other_vector.xyz[1] - self.xyz[1] * other_vector.xyz[0]
         )
     def __eq__(self, other_vector):
-        return all([self.x == other_vector.x, self.y == other_vector.y, self.z == other_vector.z])
+        return self.xyz == other_vector.xyz
     def length(self):
         if self._length is None:
-            self._length = math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
+            self._length = np.linalg.norm(self.xyz)
         return self._length
     def normalize(self):
         my_length = self.length()
-        return Vector(self.x / my_length, self.y / my_length, self.z / my_length)
+        return Vector(*(self.xyz / my_length))
     def __repr__(self):
-        return f"Vector(x={self.x}, y={self.y}, z={self.z})"
-    
+        return f"Vector(x={self.xyz[0]}, y={self.xyz[1]}, z={self.xyz[2]})"
+
 
 class Poly(object):
     '''
@@ -192,14 +189,14 @@ def main(screen):
     # TESTING
     # cube_polys = [cube_poly + Vector(0, 0, 1000) for cube_poly in cube_polys]
 
-    player_pos = Vector(math.sqrt(2) / 2 * PLAYER_DIST, math.sqrt(2) / 2 * PLAYER_DIST, PLAYER_HEIGHT)
+    player_pos = Vector(np.sqrt(2) / 2 * PLAYER_DIST, np.sqrt(2) / 2 * PLAYER_DIST, PLAYER_HEIGHT)
     player_dir = (Vector(0, 0, PLAYER_HEIGHT) - player_pos).normalize()
 
     screen_height, screen_width = screen.getmaxyx()
     center_screen_row, center_screen_col = screen_height // 2, screen_width // 2
 
-    v_pix_size = 2 * SCREEN_DISTANCE * math.tan(VFOV / 2) / screen_height
-    h_pix_size = 2 * SCREEN_DISTANCE * math.tan(HFOV / 2) / screen_width
+    v_pix_size = 2 * SCREEN_DISTANCE * np.tan(VFOV / 2) / screen_height
+    h_pix_size = 2 * SCREEN_DISTANCE * np.tan(HFOV / 2) / screen_width
 
     light_location = Vector(0.5, LIGHT_DISTANCE, 0.5)
     n = 0
@@ -208,20 +205,22 @@ def main(screen):
         
         t0 = time.time()
 
-        view_angle = math.atan2(player_dir.y, player_dir.x)
+        view_angle = np.arctan2(player_dir.xyz[1], player_dir.xyz[0])
+        cosa = np.cos(view_angle)
+        sina = np.sin(view_angle)
+        R = np.array([[cosa, -sina, 0], [sina, cosa, 0], [0, 0, 1]])
 
         for row in range(screen_height-1):
             for col in range(screen_width-1):
                 # In coordinate frame where y, z is defined by screen, y horiz L-R, z vert down to up
                 # x is out of screen away from player
                 # player is at (x,y,z) = (0, 0, 0)
-
                 pix_vec = Vector(
                     SCREEN_DISTANCE,
                     (col - center_screen_col) * h_pix_size,
                     (center_screen_row - row) * v_pix_size  # Because curses y=0 is top of screen
                 ).normalize()
-                pix_vec = z_rotate(pix_vec, view_angle)
+                pix_vec = Vector(*(R @ pix_vec.xyz))
 
                 polys_along_los = []
 
