@@ -212,14 +212,14 @@ def main(screen):
 
         # TODO: Project polys into screen space, get line segments and bounding boxes
         # Define a rotation matrix from world coords to screen coords
-        screen_z_hat = player_dir
-        screen_y_hat = Vector(0, 0, -1)
-        screen_x_hat = screen_y_hat.cross(screen_z_hat)
-        R_world_screen = [
-            [screen_x_hat.x, screen_y_hat.x, screen_z_hat.x], 
-            [screen_x_hat.y, screen_y_hat.y, screen_z_hat.y],
-            [screen_x_hat.z, screen_y_hat.z, screen_z_hat.z]
-        ]
+        # screen_z_hat = player_dir
+        # screen_y_hat = Vector(0, 0, -1)
+        # screen_x_hat = screen_y_hat.cross(screen_z_hat)
+        # R_world_screen = [
+        #     [screen_x_hat.x, screen_y_hat.x, screen_z_hat.x], 
+        #     [screen_x_hat.y, screen_y_hat.y, screen_z_hat.y],
+        #     [screen_x_hat.z, screen_y_hat.z, screen_z_hat.z]
+        # ]
         # Define a translation from world origin to screen origin
 
         for row in range(screen_height-1):
