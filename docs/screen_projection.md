@@ -83,6 +83,7 @@ Count the number of line segments that intersect. If odd, then the pixel is with
 ## Updated viz loop
 
 - Create empty screen buffer
+- Create rotation matrix and translation vector
 - Loop over all polygons
   - Check if the polygon is facing the camera by dotting the surface norm with the player LOS, skip if facing away
   - Project each polygon into the screen coordinates according to the transformations above
