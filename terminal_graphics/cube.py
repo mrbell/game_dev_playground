@@ -1,18 +1,32 @@
 '''
 Draw a cube to the terminal and rotate the camera around the cube at a fixed rate. 
 Trying to do it in pure Python and hit at least 20 FPS.
+
+Things to try once this is working:
+- Clean up code
+- Play with lighting (location, how brightness is computed, etc.)
+- Display using colors
+- Display using more character types, maybe super resolve?
+- Add more objects to scene
+- Add input loop so player controls rotation
+- Allow camera to pitch (in addition to yaw like it does now)
+- Allow player to walk around FPS style, maybe free fly to change height and pitch as well as x,y position and yaw
+- Add more lights
+- Create a little level to walk around in
+- Add textures
+- Add sprites
 '''
 import math
 import time
 import curses
 
 
-REFRESH_RATE = 30
+REFRESH_RATE = 60
 GRAYS = [' ', '░', '▒', '▓', '█']
-PLAYER_DIST = 2.25
+PLAYER_DIST = 3
 PLAYER_HEIGHT = 0.5
 # The camera will rotate at this rate, rad/frame w/ locked FPS
-PLAYER_ANGULAR_VELOCITY = 0  # 2 * math.pi / 20 / REFRESH_RATE
+PLAYER_ANGULAR_VELOCITY = 2 * math.pi / 20 / REFRESH_RATE
 SCREEN_DISTANCE = 0.5  # From player
 HFOV = 80 * math.pi / 180  # Roughly 1 deg / pixel if term is 80 columns wide
 VFOV = 60 * math.pi / 180
@@ -155,6 +169,7 @@ class Poly(object):
 
 
 def test_pixel_in_screen_poly(row, col, screen_poly):
+    '''Using ray casting algorithm'''
     ray_edge_intersection_count = 0
     for vertex, edge in zip(screen_poly.vertices, screen_poly.edges):
         if edge.y != 0:
@@ -218,7 +233,6 @@ def main(screen):
     screen_height, screen_width = screen.getmaxyx()
     center_screen_row, center_screen_col = screen_height // 2, screen_width // 2
 
-    # TODO: Gotta do something with the pixel size to scale polys on the screen based on given FOV
     v_pix_size = 2 * SCREEN_DISTANCE * math.tan(VFOV / 2) / screen_height
     h_pix_size = 2 * SCREEN_DISTANCE * math.tan(HFOV / 2) / screen_width
 
@@ -240,8 +254,10 @@ def main(screen):
 
     player_in_screen_coords = Vector(0, 0, -SCREEN_DISTANCE)
 
+    poly_pixels = {}
+
     n = 0
-    while True: # n < 10:
+    while True: # n < 10:  # For profiling
         n += 1
         
         t0 = time.time()
@@ -267,9 +283,10 @@ def main(screen):
         min_row, max_row, min_col, max_col = 2 * screen_height, -1, 2 * screen_width, -1
         for poly_num, poly in enumerate(cube_polys):
             if poly.surface_vector.dot(player_dir) >= 0:
+                # The face of the poly is pointing away from the camera, don't display (these sides of a face are internal)
                 continue
 
-            trans_vertices = []
+            xfered_vertices = []
             any_in_screen = False
             for vertex in poly.vertices:
 
@@ -282,49 +299,54 @@ def main(screen):
                 # Translate origin of screen coords
                 v_3Dscreen_coords = v_3Dscreen_coords + T_origin_screen
                 # Project onto the screen plane (z_screen = 0)
+                # Find where ray from player to player_to_vertex intersects with z=0, take x-y coords at that point along ray
                 player_to_vertex = v_3Dscreen_coords - player_in_screen_coords
-                v_in_screen = Vector(player_to_vertex.x / h_pix_size, player_to_vertex.y / v_pix_size, 0)
+                alpha = - player_in_screen_coords.z / player_to_vertex.z
+                v_in_screen = player_in_screen_coords + alpha * player_to_vertex
+                v_in_screen_pixels = Vector(v_in_screen.x / h_pix_size, v_in_screen.y / v_pix_size, 0)
                 # Shift 0,0 from center of screen to TLC
-                v_in_screen = v_in_screen + T_screen_center_to_tlc
-                trans_vertices.append(v_in_screen)
+                v_in_screen_pixels = v_in_screen_pixels + T_screen_center_to_tlc
+                xfered_vertices.append(v_in_screen_pixels)
                 # Check to see if at least one vertex is on screen
-                if (screen_width - 2) >= v_in_screen.x >= 0 and (screen_height - 2) >= v_in_screen.y >= 0:
+                if (screen_width - 2) >= v_in_screen_pixels.x >= 0 and (screen_height - 2) >= v_in_screen_pixels.y >= 0:
                     any_in_screen = True
             
             if any_in_screen:
 
-                for vertex in trans_vertices:
+                for vertex in xfered_vertices:
                     if int(vertex.x + 0.5) < min_col:
                         min_col = max([int(vertex.x), 0])
                     if int(vertex.y + 0.5) < min_row:
                         min_row = max([int(vertex.y), 0])
                     if int(vertex.x + 0.5) > max_col:
                         max_col = min([int(vertex.x), screen_width - 2])
-                    if int(vertex.y + 0.5) < max_row:
+                    if int(vertex.y + 0.5) > max_row:
                         max_row = min([int(vertex.y), screen_height - 2])
 
-                polys_to_display.append((poly_num, Poly(trans_vertices)))
+                polys_to_display.append((poly_num, Poly(xfered_vertices)))
 
         # Loop over pixels that contain polys to draw
-        poly_pixels = {}
         for row in range(min_row, max_row + 1):
             for col in range(min_col, max_col + 1):
+                pixel_selector_and_dist = []
                 for poly_num, screen_poly in polys_to_display:
                     
                     pixel_selector = 0
                     
                     if test_pixel_in_screen_poly(row, col, screen_poly):
+                        poly = cube_polys[poly_num]
+                        poly_center = Vector(0, 0, 0)
+                        for vertex in poly.vertices:
+                            poly_center = poly_center + (vertex * 0.25)
+                        
+                        player_to_poly_distance = (poly_center - player_pos).length()
+
                         if poly_num in poly_pixels:
                             pixel_selector = poly_pixels[poly_num]
                         else:
                             # Determine brightness... 
                             # Factors... dist from face to light, ambient light, face to light ang, face to camera dist
-                            poly = cube_polys[poly_num]
-                            poly_center = Vector(0, 0, 0)
-                            for vertex in poly:
-                                poly_center = poly_center + (vertex * 0.25)
                             
-                            # player_to_poly_distance = (poly_center - player_pos).length()
                             light_to_poly = light_location - poly_center
                             # light_to_poly_distance = light_to_poly.length()
                             light_to_poly_cos_angle = light_to_poly.normalize().dot(poly.surface_vector)
@@ -343,22 +365,24 @@ def main(screen):
 
                             poly_pixels[poly_num] = pixel_selector
 
-                        screen_buffer[row][col] = GRAYS[pixel_selector]
+                        pixel_selector_and_dist.append((player_to_poly_distance, pixel_selector))
+                
+                pixel_selector = min(pixel_selector_and_dist, key=lambda x: x[0])[1] if len(pixel_selector_and_dist) > 0 else 0
+                screen_buffer[row][col] = GRAYS[pixel_selector]
             
         player_pos = z_rotate(player_pos, PLAYER_ANGULAR_VELOCITY)
         player_dir = z_rotate(player_dir, PLAYER_ANGULAR_VELOCITY)
         
         buffer_as_string = '\n'.join([''.join(row) for row in screen_buffer])
         screen.addstr(0, 0, buffer_as_string)
-        
+                
         t = time.time()
-        if (1 / (t - t0)) > REFRESH_RATE:
+        if (t - t0) < (1 / REFRESH_RATE):
             time.sleep((1 / REFRESH_RATE) - (t - t0))
-
         t = time.time()
         fps = 1 / (t - t0)
-
         screen.addstr(0, 0, f'{fps:.4f}')
+
         screen.refresh()
                     
 
