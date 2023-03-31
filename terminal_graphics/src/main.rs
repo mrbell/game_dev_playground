@@ -18,6 +18,21 @@
 use std::f64::consts::PI;
 use std::fmt;
 
+const REFRESH_RATE: f64 = 60.0;
+const GRAYS: [char; 10] = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'];
+const PLAYER_DISTANCE: f64 = 3.0;
+const PLAYER_HEIGHT: f64 = 0.5;
+const PLAYER_ANGULAR_VELOCITY: f64 = 2.0 * PI / 20.0 / REFRESH_RATE;
+const SCREEN_DISTANCE: f64 = 0.5;
+const HFOV: f64 = 80.0 * PI / 180.0;
+const VFOV: f64 = 60.0 * PI / 180.0;
+const LIGHT_DISTANCE: f64 = 5.0;
+const LIGHT_BRIGHTENSS: f64 = 2.0;
+const AMBIEINT_LIGHT: f64 = 1.0;
+const SATURATION_LEVEL: f64 = 5.0;
+const EPS: f64 = 1.0e-7;
+
+
 #[derive(Debug)]
 struct Vector {
     x: f64,
