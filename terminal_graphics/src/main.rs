@@ -19,8 +19,11 @@ use std::f64::consts::PI;
 use std::fmt;
 use crate::vector::Vector;
 use crate::vector::z_rotate;
+use crate::poly::Poly; 
+use crate::poly::test_pixel_in_screen_poly;
 
 mod vector;
+mod poly;
 
 const REFRESH_RATE: f64 = 60.0;
 const GRAYS: [char; 10] = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'];
