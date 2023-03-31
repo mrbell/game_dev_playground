@@ -77,7 +77,7 @@ impl Vector {
 }
 
 impl fmt::Display for Vector {
-    pub fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Vector {{ x: {}, y: {}, z: {} }}", self.x, self.y, self.z)
     }
 

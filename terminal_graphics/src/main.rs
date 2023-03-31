@@ -17,6 +17,10 @@
 
 use std::f64::consts::PI;
 use std::fmt;
+use crate::vector::Vector;
+use crate::vector::z_rotate;
+
+mod vector;
 
 const REFRESH_RATE: f64 = 60.0;
 const GRAYS: [char; 10] = [' ', '.', ':', '-', '=', '+', '*', '#', '%', '@'];
@@ -31,100 +35,6 @@ const LIGHT_BRIGHTENSS: f64 = 2.0;
 const AMBIEINT_LIGHT: f64 = 1.0;
 const SATURATION_LEVEL: f64 = 5.0;
 const EPS: f64 = 1.0e-7;
-
-
-#[derive(Debug)]
-struct Vector {
-    x: f64,
-    y: f64,
-    z: f64
-}
-
-impl Vector {
-
-    fn length(&self) -> f64 {
-        (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
-    }
-
-    fn normalize(&self) -> Vector {
-        let mut my_length = self.length();
-        if my_length < 1.0e-12 {
-            my_length = 1.0;
-        }
-        Vector {
-            x: self.x / my_length,
-            y: self.y / my_length,
-            z: self.z / my_length
-        }
-    }
-
-    fn dot(&self, other: &Vector) -> f64 {
-        self.x * other.x + self.y * other.y + self.z * other.z
-    }
-
-    fn cross(&self, other: &Vector) -> Vector {
-        Vector {
-            x: self.y * other.z - self.z * other.y,
-            y: -self.x * other.z + self.z * other.x,
-            z: self.x * other.y - self.y * other.x
-        }
-    }
-
-    fn copy(&self) -> Vector {
-        Vector{x: self.x, y: self.y, z: self.z}
-    }
-
-    fn add(&self, other: &Vector) -> Vector {
-        Vector{
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z
-        }
-    }
-    
-    fn subtract(&self, other: &Vector) -> Vector {
-        Vector{
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z
-        }
-    }
-
-    fn scale(&self, factor: f64) -> Vector {
-        Vector {
-            x: self.x * factor,
-            y: self.y * factor,
-            z: self.z * factor
-        }
-    }
-
-    fn equals(&self, other: &Vector) -> bool {
-        if (self.x == other.x) & (self.y == other.y) & (self.z == other.z) {
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl fmt::Display for Vector {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Vector {{ x: {}, y: {}, z: {} }}", self.x, self.y, self.z)
-    }
-
-}
-
-
-fn z_rotate(v: &Vector, angle_rad: f64) -> Vector {
-    let cosa= angle_rad.cos();
-    let sina = angle_rad.sin();
-
-    Vector{
-        x: v.x * cosa - v.y * sina,
-        y: v.x * sina + v.y * cosa,
-        z: v.z
-    } 
-}
 
 
 fn main() {
